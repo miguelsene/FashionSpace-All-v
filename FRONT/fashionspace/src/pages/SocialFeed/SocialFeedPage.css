@@ -1,0 +1,8 @@
+.social-feed-page {
+  min-height: 100vh;
+  background: #f8f9fa;
+  padding: 1rem 0;
+}
+.dark .social-feed-page {
+  background: #0a0f18;
+}

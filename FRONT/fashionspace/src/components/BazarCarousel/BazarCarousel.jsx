@@ -1,0 +1,228 @@
+import { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { categorias } from '../../data/bazares';
+import FavoriteButton from '../FavoriteButton/FavoriteButton';
+import './BazarCarousel.css';
+
+const BazarCarousel = ({ bazares }) => {
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [itemsPerView, setItemsPerView] = useState(3);
+  const [isDono, setIsDono] = useState(false);
+  const [user, setUser] = useState(null);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth < 768) {
+        setItemsPerView(1);
+      } else if (window.innerWidth < 1200) {
+        setItemsPerView(2);
+      } else {
+        setItemsPerView(3);
+      }
+    };
+
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  useEffect(() => {
+    try {
+      const userData = JSON.parse(localStorage.getItem('fashionspace_user') || 'null');
+      setUser(userData);
+      setIsDono(userData?.tipoUsuario === 'dono');
+    } catch {}
+  }, []);
+
+  const openChat = (bazar) => {
+    if (!user) {
+      alert('Faça login para enviar mensagens');
+      return;
+    }
+    navigate(`/chat/${bazar.id}`);
+  };
+
+  const nextSlide = () => {
+    setCurrentIndex((prev) => 
+      prev + itemsPerView >= bazares.length ? 0 : prev + 1
+    );
+  };
+
+  const prevSlide = () => {
+    setCurrentIndex((prev) => 
+      prev === 0 ? Math.max(0, bazares.length - itemsPerView) : prev - 1
+    );
+  };
+
+  const getCategoriaInfo = (categoria) => {
+    return categorias.find(cat => cat.nome.toLowerCase() === categoria.toLowerCase()) || 
+           { cor: '#5f81a5', nome: categoria };
+  };
+
+  const renderStars = (rating, bazarId) => {
+    const stars = [];
+    
+    for (let i = 1; i <= 5; i++) {
+      const filled = i <= Math.floor(rating);
+      const half = i === Math.ceil(rating) && rating % 1 !== 0;
+      
+      stars.push(
+        <i 
+          key={i} 
+          className={`bi ${filled ? 'bi-star-fill star-filled' : half ? 'bi-star-half star-filled' : 'bi-star star-empty'} star-clickable`}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            handleRating(bazarId, i);
+          }}
+          title={`Avaliar com ${i} estrela${i > 1 ? 's' : ''}`}
+        ></i>
+      );
+    }
+
+    return stars;
+  };
+
+  const handleRating = async (bazarId, rating) => {
+    if (!user) {
+      alert('Faça login para avaliar');
+      return;
+    }
+    if (user.tipoUsuario === 'dono') {
+      alert('Donos de bazar não podem avaliar');
+      return;
+    }
+    
+    try {
+      // Aqui você pode adicionar a lógica de API para salvar a avaliação
+      alert(`Você avaliou com ${rating} estrela${rating > 1 ? 's' : ''}!`);
+      // Recarregar bazares após avaliação
+      window.dispatchEvent(new Event('bazaresUpdated'));
+    } catch (error) {
+      console.error('Erro ao avaliar:', error);
+      alert('Erro ao enviar avaliação');
+    }
+  };
+
+  return (
+    <div className="bazar-carousel scroll-animate">
+      <div className="carousel-header">
+        <h2>Bazares em Destaque</h2>
+        <div className="carousel-controls">
+          <button className="carousel-btn prev" onClick={prevSlide}>
+            <i className="bi bi-chevron-left"></i>
+          </button>
+          <button className="carousel-btn next" onClick={nextSlide}>
+            <i className="bi bi-chevron-right"></i>
+          </button>
+        </div>
+      </div>
+
+      <div className="carousel-container">
+        <button className="carousel-arrow prev" onClick={prevSlide}>
+          <i className="bi bi-chevron-left"></i>
+        </button>
+        <button className="carousel-arrow next" onClick={nextSlide}>
+          <i className="bi bi-chevron-right"></i>
+        </button>
+        <div 
+          className="carousel-track"
+          style={{
+            transform: `translateX(-${currentIndex * (100 / itemsPerView)}%)`,
+            width: `${(bazares.length / itemsPerView) * 100}%`
+          }}
+        >
+          {bazares.map((bazar, index) => {
+            const categoriaInfo = getCategoriaInfo(bazar.categoria);
+
+            
+            return (
+              <div 
+                key={bazar.id} 
+                className="carousel-item"
+                style={{ width: `${100 / bazares.length}%` }}
+              >
+                <div className="bazar-card">
+                  <div className="bazar-image">
+                    <img src={bazar.imagem} alt={bazar.nome} />
+                    {!isDono && (
+                      <div className="favorite-btn-container">
+                        <FavoriteButton bazarId={bazar.id} size="medium" />
+                      </div>
+                    )}
+                    <div className="rating-overlay">
+                      <div className="stars">
+                        {renderStars(bazar.avaliacao, bazar.id)}
+                      </div>
+                      <span className="rating-text">{bazar.avaliacao}</span>
+                    </div>
+                  </div>
+                  
+                  <div className="bazar-content">
+                    <div className="bazar-header">
+                      <h3>{bazar.nome}</h3>
+                      <span 
+                        className="categoria-badge"
+                        style={{ backgroundColor: categoriaInfo.cor }}
+                      >
+                        <i className={categoriaInfo.icon}></i>
+                        {categoriaInfo.nome}
+                      </span>
+                    </div>
+                    
+                    <p className="bazar-description">{bazar.descricao}</p>
+                    
+                    <div className="bazar-info">
+                      <div className="info-item">
+                        <i className="bi bi-geo-alt-fill"></i>
+                        <span>{bazar.endereco.cidade}</span>
+                      </div>
+                      <div className="info-item">
+                        <i className="bi bi-star-fill"></i>
+                        <span>{bazar.totalAvaliacoes} avaliações</span>
+                      </div>
+                    </div>
+                    
+                    <div className="bazar-actions">
+                      <Link 
+                        to={`/bazar-detalhes/${bazar.id}`} 
+                        className="btn btn-primary"
+                      >
+                        <i className="bi bi-eye-fill"></i>
+                        Ver Detalhes
+                      </Link>
+                      {!isDono && user?.tipoUsuario !== 'dono' && (
+                        <button 
+                          onClick={() => openChat(bazar)}
+                          className="btn btn-secondary"
+                        >
+                          <i className="bi bi-chat-dots-fill"></i>
+                          Chat
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="carousel-indicators">
+        {Array.from({ length: Math.ceil(bazares.length / itemsPerView) }).map((_, index) => (
+          <button
+            key={index}
+            className={`indicator ${Math.floor(currentIndex / itemsPerView) === index ? 'active' : ''}`}
+            onClick={() => setCurrentIndex(index * itemsPerView)}
+          />
+        ))}
+      </div>
+      
+
+    </div>
+  );
+};
+
+export default BazarCarousel;
